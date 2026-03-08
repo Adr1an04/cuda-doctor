@@ -198,6 +198,53 @@ cython_debug/
 #  Cursor is an AI-powered code editor. `.cursorignore` specifies files/directories to
 #  exclude from AI features like autocomplete and code analysis. Recommended for sensitive data
 #  refer to https://docs.cursor.com/context/ignore-files
+
+# Project-local packaging / scratch output
+.dist/
+
+# CMake / native build output
+build/
+out/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+build.ninja
+.ninja_deps
+.ninja_log
+
+# Compiled objects / binaries
+*.o
+*.obj
+*.lo
+*.la
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.exp
+*.idb
+*.ilk
+*.pdb
+*.out
+
+# CUDA / NVCC generated artifacts
+*.ptx
+*.cubin
+*.fatbin
+*.nvvm
+*.cudafe1.cpp
+*.cudafe1.gpu
+*.cudafe1.stub.c
+*.cpp1.ii
+*.cpp4.ii
+*.module_id
 .cursorignore
 .cursorindexingignore
 
