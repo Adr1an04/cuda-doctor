@@ -22,6 +22,7 @@ struct Report {
   std::string arch;
   Status overall;
   std::vector<Probe> probes;
+  std::vector<std::string> next_steps;
 };
 
 inline const char* to_string(Status status) noexcept {
@@ -37,4 +38,4 @@ inline const char* to_string(Status status) noexcept {
   return "missing";
 }
 
-}  // namespace cuda_doctor::core
+}

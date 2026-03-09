@@ -10,6 +10,12 @@ add_executable(
   cuda-doctor-core
   src/main.cpp
   src/commands/check.cpp
+  src/commands/doctor.cpp
+  src/core/process.cpp
+  src/core/platform.cpp
+  src/core/driver.cpp
+  src/core/cuda_env.cpp
+  src/core/gpu.cpp
 )
 
 target_include_directories(cuda-doctor-core PRIVATE include)

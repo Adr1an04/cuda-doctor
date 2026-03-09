@@ -2,15 +2,18 @@
 #include <string>
 
 #include "commands/check.hpp"
+#include "commands/doctor.hpp"
 #include "core/report.hpp"
 
 namespace {
 
-void print_usage() {
-  std::cerr << "Usage: cuda-doctor-core check [--json]\n";
+using cuda_doctor::core::Report;
+
+static inline void print_usage() {
+  std::cerr << "Usage: cuda-doctor-core <check|doctor> [--json]\n";
 }
 
-std::string escape_json(const std::string& text) {
+static inline std::string escape_json(const std::string& text) {
   std::string escaped;
   escaped.reserve(text.size());
   for (const char ch : text) {
@@ -27,8 +30,8 @@ std::string escape_json(const std::string& text) {
   return escaped;
 }
 
-void print_text(const cuda_doctor::core::Report& report) {
-  std::cout << "cuda-doctor check\n";
+static inline void print_text(const std::string& command, const Report& report) {
+  std::cout << "cuda-doctor " << command << "\n";
   std::cout << "overall: " << cuda_doctor::core::to_string(report.overall)
             << "\n";
   std::cout << "os: " << report.os << "\n";
@@ -39,10 +42,18 @@ void print_text(const cuda_doctor::core::Report& report) {
               << "]\n";
     std::cout << "  " << probe.message << "\n";
   }
+
+  if (!report.next_steps.empty()) {
+    std::cout << "\nnext steps\n";
+    for (const auto& step : report.next_steps) {
+      std::cout << "  - " << step << "\n";
+    }
+  }
 }
 
-void print_json(const cuda_doctor::core::Report& report) {
+static inline void print_json(const std::string& command, const Report& report) {
   std::cout << "{\n";
+  std::cout << "  \"command\": \"" << escape_json(command) << "\",\n";
   std::cout << "  \"overall\": \"" << cuda_doctor::core::to_string(report.overall)
             << "\",\n";
   std::cout << "  \"os\": \"" << escape_json(report.os) << "\",\n";
@@ -61,11 +72,29 @@ void print_json(const cuda_doctor::core::Report& report) {
     std::cout << "\n";
   }
 
+  std::cout << "  ],\n";
+  std::cout << "  \"next_steps\": [\n";
+  for (std::size_t i = 0; i < report.next_steps.size(); ++i) {
+    std::cout << "    \"" << escape_json(report.next_steps[i]) << "\"";
+    if (i + 1 < report.next_steps.size()) {
+      std::cout << ",";
+    }
+    std::cout << "\n";
+  }
   std::cout << "  ]\n";
   std::cout << "}\n";
 }
 
-}  // namespace
+static inline bool is_json_output(int argc, char** argv) {
+  return argc > 2 && std::string(argv[2]) == "--json";
+}
+
+static inline Report run_command(const std::string& command) {
+  return command == "doctor" ? cuda_doctor::commands::run_doctor()
+                             : cuda_doctor::commands::run_check();
+}
+
+}
 
 int main(int argc, char** argv) {
   if (argc < 2) {
@@ -74,18 +103,17 @@ int main(int argc, char** argv) {
   }
 
   const std::string command = argv[1];
-  if (command != "check") {
+  if (command != "check" && command != "doctor") {
     print_usage();
     return 2;
   }
 
-  const bool json_output = argc > 2 && std::string(argv[2]) == "--json";
-  const auto report = cuda_doctor::commands::run_check();
+  const auto report = run_command(command);
 
-  if (json_output) {
-    print_json(report);
+  if (is_json_output(argc, argv)) {
+    print_json(command, report);
   } else {
-    print_text(report);
+    print_text(command, report);
   }
 
   return report.overall == cuda_doctor::core::Status::kOk ? 0 : 1;

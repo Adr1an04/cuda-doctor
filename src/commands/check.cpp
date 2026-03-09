@@ -1,137 +1,54 @@
 #include "commands/check.hpp"
 
-#include <cstdio>
-#include <cstdlib>
-#include <filesystem>
-#include <sstream>
+#include <utility>
+
+#include "core/cuda_env.hpp"
+#include "core/driver.hpp"
+#include "core/gpu.hpp"
+#include "core/platform.hpp"
 
 namespace cuda_doctor::commands {
 
 namespace {
 
-std::string trim(std::string text) {
-  while (!text.empty() &&
-         (text.back() == '\n' || text.back() == '\r' || text.back() == ' ')) {
-    text.pop_back();
-  }
+using core::Probe;
+using core::Report;
+using core::Status;
 
-  std::size_t first = 0;
-  while (first < text.size() && text[first] == ' ') {
-    ++first;
-  }
+static inline Status summarize_status(const std::vector<Probe>& probes) {
+  bool any_missing = false;
 
-  return text.substr(first);
-}
-
-std::string detect_os() {
-#if defined(__APPLE__)
-  return "macos";
-#elif defined(__linux__)
-  return "linux";
-#elif defined(_WIN32)
-  return "windows";
-#else
-  return "unknown";
-#endif
-}
-
-std::string detect_arch() {
-#if defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64)
-  return "arm64";
-#elif defined(__x86_64__) || defined(_M_X64)
-  return "x86_64";
-#else
-  return "unknown";
-#endif
-}
-
-bool command_exists(const std::string& name) {
-  const char* path_env = std::getenv("PATH");
-  if (path_env == nullptr) {
-    return false;
-  }
-
-  std::stringstream path_stream(path_env);
-  std::string entry;
-  while (std::getline(path_stream, entry, ':')) {
-    if (entry.empty()) {
-      continue;
+  for (const auto& probe : probes) {
+    if (probe.status == Status::kUnsupported) {
+      return Status::kUnsupported;
     }
 
-    const auto candidate = std::filesystem::path(entry) / name;
-    if (std::filesystem::exists(candidate)) {
-      return true;
+    if (probe.status == Status::kMissing) {
+      any_missing = true;
     }
   }
 
-  return false;
+  return any_missing ? Status::kMissing : Status::kOk;
 }
 
-std::string capture(const char* command) {
-  std::string output;
-  FILE* pipe = popen(command, "r");
-  if (pipe == nullptr) {
-    return output;
-  }
-
-  char buffer[256];
-  while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-    output += buffer;
-  }
-
-  pclose(pipe);
-  return trim(output);
 }
 
-cuda_doctor::core::Status summarize(bool unsupported, bool driver_ok, bool cuda_ok) {
-  if (unsupported) {
-    return cuda_doctor::core::Status::kUnsupported;
-  }
+Report run_check() {
+  const auto platform = cuda_doctor::core::platform::detect();
+  auto probes = std::vector<Probe>{
+      platform.probe,
+      cuda_doctor::core::driver::detect(),
+      cuda_doctor::core::cuda_env::detect(),
+      cuda_doctor::core::gpu::detect(),
+  };
 
-  return (driver_ok && cuda_ok) ? cuda_doctor::core::Status::kOk
-                                : cuda_doctor::core::Status::kMissing;
+  return {
+      .os = platform.os,
+      .arch = platform.arch,
+      .overall = summarize_status(probes),
+      .probes = std::move(probes),
+      .next_steps = {},
+  };
 }
 
-}  // namespace
-
-cuda_doctor::core::Report run_check() {
-  cuda_doctor::core::Report report;
-  report.os = detect_os();
-  report.arch = detect_arch();
-
-  const bool unsupported = report.os == "macos";
-  const bool has_driver = command_exists("nvidia-smi");
-  const bool has_nvcc = command_exists("nvcc");
-
-  report.probes.push_back({
-      .name = "platform",
-      .status = unsupported ? cuda_doctor::core::Status::kUnsupported
-                            : cuda_doctor::core::Status::kOk,
-      .message = unsupported
-                     ? "NVIDIA CUDA is not supported on this macOS host."
-                     : "Host platform can support an NVIDIA CUDA stack.",
-  });
-
-  report.probes.push_back({
-      .name = "driver",
-      .status = has_driver ? cuda_doctor::core::Status::kOk
-                           : cuda_doctor::core::Status::kMissing,
-      .message = has_driver
-                     ? "Found nvidia-smi: " +
-                           capture("nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null")
-                     : "nvidia-smi was not found.",
-  });
-
-  report.probes.push_back({
-      .name = "cuda",
-      .status = has_nvcc ? cuda_doctor::core::Status::kOk
-                         : cuda_doctor::core::Status::kMissing,
-      .message = has_nvcc ? "Found nvcc: " + capture("nvcc --version 2>/dev/null")
-                          : "nvcc was not found.",
-  });
-
-  report.overall = summarize(unsupported, has_driver, has_nvcc);
-  return report;
 }
-
-}  // namespace cuda_doctor::commands
