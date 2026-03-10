@@ -11,6 +11,7 @@ add_executable(
   src/main.cpp
   src/commands/check.cpp
   src/commands/doctor.cpp
+  src/core/configure.cpp
   src/core/process.cpp
   src/core/platform.cpp
   src/core/driver.cpp

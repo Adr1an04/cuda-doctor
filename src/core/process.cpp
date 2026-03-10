@@ -9,6 +9,10 @@ namespace cuda_doctor::core::process {
 
 namespace {
 
+static inline bool is_command_path(const std::filesystem::path& path) {
+  return std::filesystem::exists(path) && !std::filesystem::is_directory(path);
+}
+
 static inline std::string trim(std::string text) {
   while (!text.empty() &&
          (text.back() == '\n' || text.back() == '\r' || text.back() == ' ')) {
@@ -25,10 +29,10 @@ static inline std::string trim(std::string text) {
 
 }
 
-bool command_exists(const std::string& name) {
+std::optional<std::filesystem::path> find_command(const std::string& name) {
   const char* path_env = std::getenv("PATH");
   if (path_env == nullptr) {
-    return false;
+    return std::nullopt;
   }
 
   std::stringstream path_stream(path_env);
@@ -39,13 +43,16 @@ bool command_exists(const std::string& name) {
     }
 
     const auto candidate = std::filesystem::path(entry) / name;
-    if (std::filesystem::exists(candidate) &&
-        !std::filesystem::is_directory(candidate)) {
-      return true;
+    if (is_command_path(candidate)) {
+      return candidate;
     }
   }
 
-  return false;
+  return std::nullopt;
+}
+
+bool command_exists(const std::string& name) {
+  return find_command(name).has_value();
 }
 
 std::string capture(const char* command) {

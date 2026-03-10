@@ -4,6 +4,7 @@
 #include <string_view>
 
 #include "commands/check.hpp"
+#include "core/configure.hpp"
 
 namespace cuda_doctor::commands {
 
@@ -37,8 +38,19 @@ static inline void append_step_if_missing(
 
 }
 
-Report run_doctor() {
+Report run_doctor(bool auto_configure, const std::filesystem::path& cwd) {
   auto report = run_check();
+
+  if (auto_configure) {
+    const auto auto_result = cuda_doctor::core::configure::apply_cuda_env(report.os, cwd);
+    report.probes.push_back(auto_result.probe);
+    if (auto_result.probe.status == Status::kOk) {
+      report.next_steps.push_back(
+          "Run `source " + auto_result.env_file.filename().string() + "` before building in this shell.");
+      report.next_steps.push_back(
+          "Re-run `cuda-doctor doctor` after sourcing the env file.");
+    }
+  }
 
   // On macOS the right answer is "unsupported", not "install more CUDA bits".
   if (report.overall == Status::kUnsupported && report.os == "macos") {

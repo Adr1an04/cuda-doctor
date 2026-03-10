@@ -10,7 +10,7 @@ namespace {
 using cuda_doctor::core::Report;
 
 static inline void print_usage() {
-  std::cerr << "Usage: cuda-doctor-core <check|doctor> [--json]\n";
+  std::cerr << "Usage: cuda-doctor-core <check|doctor> [auto] [--json]\n";
 }
 
 static inline std::string escape_json(const std::string& text) {
@@ -86,11 +86,29 @@ static inline void print_json(const std::string& command, const Report& report) 
 }
 
 static inline bool is_json_output(int argc, char** argv) {
-  return argc > 2 && std::string(argv[2]) == "--json";
+  for (int i = 2; i < argc; ++i) {
+    if (std::string(argv[i]) == "--json") {
+      return true;
+    }
+  }
+
+  return false;
 }
 
-static inline Report run_command(const std::string& command) {
-  return command == "doctor" ? cuda_doctor::commands::run_doctor()
+static inline bool is_auto_configure(int argc, char** argv) {
+  for (int i = 2; i < argc; ++i) {
+    if (std::string(argv[i]) == "auto") {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+static inline Report run_command(
+    const std::string& command,
+    bool auto_configure) {
+  return command == "doctor" ? cuda_doctor::commands::run_doctor(auto_configure)
                              : cuda_doctor::commands::run_check();
 }
 
@@ -108,12 +126,34 @@ int main(int argc, char** argv) {
     return 2;
   }
 
-  const auto report = run_command(command);
+  const bool auto_configure = is_auto_configure(argc, argv);
+  if (command != "doctor" && auto_configure) {
+    print_usage();
+    return 2;
+  }
+
+  for (int i = 2; i < argc; ++i) {
+    const std::string arg = argv[i];
+    if (arg == "--json") {
+      continue;
+    }
+
+    if (command == "doctor" && arg == "auto") {
+      continue;
+    }
+
+    print_usage();
+    return 2;
+  }
+
+  const auto report = run_command(command, auto_configure);
+  const std::string display_command =
+      command == "doctor" && auto_configure ? "doctor auto" : command;
 
   if (is_json_output(argc, argv)) {
-    print_json(command, report);
+    print_json(display_command, report);
   } else {
-    print_text(command, report);
+    print_text(display_command, report);
   }
 
   return report.overall == cuda_doctor::core::Status::kOk ? 0 : 1;
