@@ -14,14 +14,17 @@ Probe detect() {
     };
   }
 
-  const auto version = process::capture(
+  const auto result = process::run(
       "nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null");
   return {
       .name = "driver",
-      .status = Status::kOk,
-      .message = version.empty()
+      .status = result.exit_code == 0 && !result.output.empty() ? Status::kOk
+                                                                : Status::kIssue,
+      .message = result.exit_code != 0
+                     ? "Found nvidia-smi, but the driver version query failed."
+                 : result.output.empty()
                      ? "Found nvidia-smi, but the driver version query returned no output."
-                     : "Detected NVIDIA driver version " + version + ".",
+                     : "Detected NVIDIA driver version " + result.output + ".",
   };
 }
 

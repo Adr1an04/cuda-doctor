@@ -4,6 +4,9 @@
 #include <cstdlib>
 #include <filesystem>
 #include <sstream>
+#if !defined(_WIN32)
+#include <sys/wait.h>
+#endif
 
 namespace cuda_doctor::core::process {
 
@@ -25,6 +28,26 @@ static inline std::string trim(std::string text) {
   }
 
   return text.substr(first);
+}
+
+static inline int decode_exit_code(const int status) {
+  if (status == -1) {
+    return -1;
+  }
+
+#if defined(_WIN32)
+  return status;
+#else
+  if (WIFEXITED(status)) {
+    return WEXITSTATUS(status);
+  }
+
+  if (WIFSIGNALED(status)) {
+    return 128 + WTERMSIG(status);
+  }
+
+  return status;
+#endif
 }
 
 }
@@ -55,11 +78,14 @@ bool command_exists(const std::string& name) {
   return find_command(name).has_value();
 }
 
-std::string capture(const char* command) {
+CommandResult run(const std::string& command) {
   std::string output;
-  FILE* pipe = popen(command, "r");
+  FILE* pipe = popen(command.c_str(), "r");
   if (pipe == nullptr) {
-    return output;
+    return {
+        .exit_code = -1,
+        .output = {},
+    };
   }
 
   char buffer[256];
@@ -67,8 +93,14 @@ std::string capture(const char* command) {
     output += buffer;
   }
 
-  pclose(pipe);
-  return trim(output);
+  return {
+      .exit_code = decode_exit_code(pclose(pipe)),
+      .output = trim(output),
+  };
+}
+
+std::string capture(const char* command) {
+  return run(command).output;
 }
 
 }

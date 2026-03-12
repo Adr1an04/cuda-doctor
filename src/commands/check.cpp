@@ -16,6 +16,7 @@ using core::Report;
 using core::Status;
 
 static inline Status summarize_status(const std::vector<Probe>& probes) {
+  bool any_issue = false;
   bool any_missing = false;
 
   for (const auto& probe : probes) {
@@ -23,9 +24,17 @@ static inline Status summarize_status(const std::vector<Probe>& probes) {
       return Status::kUnsupported;
     }
 
+    if (probe.status == Status::kIssue) {
+      any_issue = true;
+    }
+
     if (probe.status == Status::kMissing) {
       any_missing = true;
     }
+  }
+
+  if (any_issue) {
+    return Status::kIssue;
   }
 
   return any_missing ? Status::kMissing : Status::kOk;

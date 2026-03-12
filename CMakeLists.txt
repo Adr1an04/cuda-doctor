@@ -17,6 +17,7 @@ add_executable(
   src/core/driver.cpp
   src/core/cuda_env.cpp
   src/core/gpu.cpp
+  src/core/repo.cpp
 )
 
 target_include_directories(cuda-doctor-core PRIVATE include)

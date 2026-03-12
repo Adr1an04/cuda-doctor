@@ -7,6 +7,7 @@ namespace cuda_doctor::core {
 
 enum class Status {
   kOk,
+  kIssue,
   kMissing,
   kUnsupported,
 };
@@ -29,6 +30,8 @@ inline const char* to_string(Status status) noexcept {
   switch (status) {
     case Status::kOk:
       return "ok";
+    case Status::kIssue:
+      return "issue";
     case Status::kMissing:
       return "missing";
     case Status::kUnsupported:

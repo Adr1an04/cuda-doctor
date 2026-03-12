@@ -14,13 +14,17 @@ Probe detect() {
     };
   }
 
-  const auto gpu_name = process::capture(
+  const auto result = process::run(
       "nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null");
   return {
       .name = "gpu",
-      .status = gpu_name.empty() ? Status::kMissing : Status::kOk,
-      .message = gpu_name.empty() ? "No NVIDIA GPU was reported by nvidia-smi."
-                                  : "Detected GPU " + gpu_name + ".",
+      .status = result.exit_code == 0 && !result.output.empty() ? Status::kOk
+                                                                : Status::kIssue,
+      .message = result.exit_code != 0
+                     ? "nvidia-smi is present, but the GPU query failed."
+                 : result.output.empty()
+                     ? "nvidia-smi ran, but no NVIDIA GPU was reported."
+                     : "Detected GPU " + result.output + ".",
   };
 }
 

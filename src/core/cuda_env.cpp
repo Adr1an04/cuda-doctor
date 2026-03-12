@@ -103,13 +103,15 @@ Probe detect() {
     };
   }
 
-  const auto command = nvcc->string() + " --version 2>/dev/null";
-  const auto release = parse_release(process::capture(command.c_str()));
+  const auto result = process::run(nvcc->string() + " --version 2>/dev/null");
+  const auto release = parse_release(result.output);
   return {
       .name = "cuda",
-      .status = Status::kOk,
-      // `nvcc` exists, but a missing release string usually means the local toolchain is odd
-      .message = release.empty()
+      .status = result.exit_code == 0 && !release.empty() ? Status::kOk
+                                                          : Status::kIssue,
+      .message = result.exit_code != 0
+                     ? "Detected nvcc, but `nvcc --version` failed."
+                 : release.empty()
                      ? "Detected nvcc, but the CUDA release could not be parsed."
                      : "Detected CUDA toolkit release " + release + ".",
   };

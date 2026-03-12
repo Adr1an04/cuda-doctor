@@ -1,5 +1,11 @@
+#include <filesystem>
 #include <iostream>
 #include <string>
+#if defined(_WIN32)
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 
 #include "commands/check.hpp"
 #include "commands/doctor.hpp"
@@ -112,6 +118,36 @@ static inline Report run_command(
                              : cuda_doctor::commands::run_check();
 }
 
+static inline bool has_repo_issue(const Report& report) {
+  for (const auto& probe : report.probes) {
+    if (probe.name == "repo" && probe.status == cuda_doctor::core::Status::kIssue) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+static inline bool is_interactive_terminal() {
+#if defined(_WIN32)
+  return _isatty(_fileno(stdin)) && _isatty(_fileno(stdout));
+#else
+  return isatty(fileno(stdin)) && isatty(fileno(stdout));
+#endif
+}
+
+static inline bool prompt_for_repo_fix() {
+  std::cout << "\nThis repo has dependency issues with 32-bit CUDA targets.\n";
+  std::cout << "Would you want to fix it? [y/N] " << std::flush;
+
+  std::string answer;
+  if (!std::getline(std::cin, answer)) {
+    return false;
+  }
+
+  return answer == "y" || answer == "Y" || answer == "yes" || answer == "YES";
+}
+
 }
 
 int main(int argc, char** argv) {
@@ -146,7 +182,7 @@ int main(int argc, char** argv) {
     return 2;
   }
 
-  const auto report = run_command(command, auto_configure);
+  auto report = run_command(command, auto_configure);
   const std::string display_command =
       command == "doctor" && auto_configure ? "doctor auto" : command;
 
@@ -154,6 +190,17 @@ int main(int argc, char** argv) {
     print_json(display_command, report);
   } else {
     print_text(display_command, report);
+  }
+
+  if (!is_json_output(argc, argv) &&
+      command == "doctor" &&
+      !auto_configure &&
+      has_repo_issue(report) &&
+      is_interactive_terminal() &&
+      prompt_for_repo_fix()) {
+    report = cuda_doctor::commands::run_doctor(true, std::filesystem::current_path());
+    std::cout << "\n";
+    print_text("doctor auto", report);
   }
 
   return report.overall == cuda_doctor::core::Status::kOk ? 0 : 1;
