@@ -62,3 +62,21 @@ class CliTests(unittest.TestCase):
             ["/tmp/cuda-doctor-core", "doctor", "auto", "--json"],
             check=False,
         )
+
+    def test_main_forwards_validate_to_native_binary(self) -> None:
+        completed = subprocess.CompletedProcess(
+            args=["cuda-doctor-core", "validate"],
+            returncode=0,
+        )
+
+        with (
+            mock.patch("cuda_doctor.cli.resolve_core_binary", return_value=Path("/tmp/cuda-doctor-core")),
+            mock.patch("cuda_doctor.cli.subprocess.run", return_value=completed) as run_mock,
+        ):
+            exit_code = cli.main(["validate"])
+
+        self.assertEqual(0, exit_code)
+        run_mock.assert_called_once_with(
+            ["/tmp/cuda-doctor-core", "validate"],
+            check=False,
+        )

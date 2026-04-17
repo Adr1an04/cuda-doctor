@@ -21,7 +21,7 @@ def resolve_core_binary() -> Path:
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="cuda-doctor")
-    parser.add_argument("command", choices=["check", "doctor"])
+    parser.add_argument("command", choices=["check", "doctor", "validate"])
     parser.add_argument("mode", nargs="?", choices=["auto"])
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)

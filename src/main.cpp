@@ -9,6 +9,7 @@
 
 #include "commands/check.hpp"
 #include "commands/doctor.hpp"
+#include "commands/validate.hpp"
 #include "core/report.hpp"
 
 namespace {
@@ -16,7 +17,7 @@ namespace {
 using cuda_doctor::core::Report;
 
 static inline void print_usage() {
-  std::cerr << "Usage: cuda-doctor-core <check|doctor> [auto] [--json]\n";
+  std::cerr << "Usage: cuda-doctor-core <check|doctor|validate> [auto] [--json]\n";
 }
 
 static inline std::string escape_json(const std::string& text) {
@@ -114,8 +115,15 @@ static inline bool is_auto_configure(int argc, char** argv) {
 static inline Report run_command(
     const std::string& command,
     bool auto_configure) {
-  return command == "doctor" ? cuda_doctor::commands::run_doctor(auto_configure)
-                             : cuda_doctor::commands::run_check();
+  if (command == "doctor") {
+    return cuda_doctor::commands::run_doctor(auto_configure);
+  }
+
+  if (command == "validate") {
+    return cuda_doctor::commands::run_validate();
+  }
+
+  return cuda_doctor::commands::run_check();
 }
 
 static inline bool has_repo_issue(const Report& report) {
@@ -157,7 +165,7 @@ int main(int argc, char** argv) {
   }
 
   const std::string command = argv[1];
-  if (command != "check" && command != "doctor") {
+  if (command != "check" && command != "doctor" && command != "validate") {
     print_usage();
     return 2;
   }
